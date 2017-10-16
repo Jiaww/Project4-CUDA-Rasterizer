@@ -9,7 +9,7 @@
 
 
 #include "main.hpp"
-
+#include <ctime>
 #define STB_IMAGE_IMPLEMENTATION
 #define TINYGLTF_LOADER_IMPLEMENTATION
 #include <util/tiny_gltf_loader.h>
@@ -17,6 +17,9 @@
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
+extern RenderMode curr_Mode;
+
+int init_time;
 
 int main(int argc, char **argv) {
     if (argc != 2) {
@@ -57,6 +60,7 @@ int main(int argc, char **argv) {
     // Launch CUDA/GL
     if (init(scene)) {
         // GLFW main loop
+		init_time = GetTickCount();
         mainLoop();
     }
 
@@ -97,12 +101,16 @@ void mainLoop() {
 //---------RUNTIME STUFF---------
 //-------------------------------
 float scale = 1.0f;
-float x_trans = 0.0f, y_trans = 0.0f, z_trans = -10.0f;
+float x_trans = 0.0f, y_trans = 0.0f, z_trans = -20.0f;
 float x_angle = 0.0f, y_angle = 0.0f;
 void runCuda() {
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
     dptr = NULL;
+
+	int currentTime = GetTickCount() - init_time;
+	
+	y_angle = 0.001f * currentTime;
 
 	glm::mat4 P = glm::frustum<float>(-scale * ((float)width) / ((float)height),
 		scale * ((float)width / (float)height),
@@ -328,6 +336,9 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+	if (key == GLFW_KEY_T && action == GLFW_PRESS) {
+		curr_Mode = RenderMode((int(curr_Mode) + 1) % 3);
+	}
 }
 
 //----------------------------
@@ -395,6 +406,6 @@ void mouseMotionCallback(GLFWwindow* window, double xpos, double ypos)
 
 void mouseWheelCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	const double s = 1.0;	// sensitivity
+	const double s = 0.35f;	// sensitivity
 	z_trans += (float)(s * yoffset);
 }
