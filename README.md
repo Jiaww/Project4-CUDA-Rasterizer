@@ -7,11 +7,16 @@ CUDA Rasterizer
 * Tested on: Windows 10, i7-6700 @ 2.60GHz 16.0GB, GTX 970M 3072MB (Personal)
 ## Overview
 ___
-* Implemented a simplified **rasterized graphics pipeline**, similar to the OpenGL pipeline using CUDA.  </br>
+* Implemented a simplified **rasterized graphics pipeline**, similar to the OpenGL pipeline using CUDA.
+
+| **K-Buffer Results(Depth = 4)** |
+|---|
+|<img src="./results/k_buffer_combined.gif" width="600" height="580">|
 
 | **Duck Wireframe/Points Toggle** | **CesiumMilkTruck K-Buffer**|
 |---|---|
 |<img src="./results/duck.gif" width="410" height="390">|<img src="./results/CesiumMilkTruck_k_buffer_backfaceculling.gif" width="410" height="390">|
+
 * Basic Pipeline:
   * Vertex shading
   * Primitive assembly with support for triangles read from buffers of index and vertex data
