@@ -76,7 +76,7 @@ ___
 
 | **Backface Culling Off** | **Backface Culling On**|
 |---|---|
-| <img src="./results/k_buffer.JPG" width="410" height="300">|<img src="./results/k_buffer_backfaceculling.JPG" width="410" height="260">|
+| <img src="./results/k_buffer.JPG" width="250" height="230">|<img src="./results/k_buffer_backfaceculling.JPG" width="250" height="230">|
 * You can see that without backface culling, there can be some artifacts during the transparency rendering.
 
 ### Performance Analysis
