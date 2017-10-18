@@ -29,7 +29,7 @@ ___
     * For rasterizing lines and points, you may start with a toggle mode that switches your pipeline from displaying triangles to displaying a wireframe or a point cloud
   * **Order-independent translucency using a k-buffer**
 
-## Features Detail
+## Feature Details
 ___
 ### Perspective Correct Texture Coordinates
 * Simply interpolate the 2D-coordinates on screen space will cause an unrealistic effect like the left image during the render. Because z-coordinates cannot be taken into account in simple screen space interpolation. 
