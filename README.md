@@ -80,7 +80,7 @@ ___
 
 |**Camera.z = -3.5**|**Camera.z = -5.5**|
 |---|---|
-|<img src="./results/plot2.JPG" width="400" height="350">|<img src="./results/plot3.JPG" width="400" height="350">|
+|<img src="./results/plot2.JPG" width="450" height="350">|<img src="./results/plot3.JPG" width="450" height="350">|
   * According to the plot above, we can find out that ***Rasterization* > *Render* > *Vertex Process & primitive Assembly* > *Send To PBO* **. 
   * Besides, when the camera zoom out, which means camera is further away from the object, the time of *Rasterization* decrease remarkably, while others are still the same. Also the *Rasterization* is the most time-comsuming part. This is because in each thread of the rasterization, it has to iterate through all pixels that this primitive covers, when camera is closer to the object, each primitive of the objects will also be larger than before, this means more pixels have to be iterated for each thread. In the worst case, one primitive can cover all of the pixels in the screen, this means one thread has to scan all screen pixels, and it will extremely slow or even crash.
 * There are 5 toggles as following:
