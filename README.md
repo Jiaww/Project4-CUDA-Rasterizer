@@ -90,7 +90,7 @@ ___
   * Bilinear_Color_Filter_Toggle 
   * Naive_Sort_Toggle: a naive sort function for K-Buffer written by myself. If it's off, the project will use thrust::sort instead.
   
-| **CesiumMilkTruck.gltf  Camera.z = -15.0 ** |
+| **CesiumMilkTruck.gltf & Camera.z = -15.0** |
 |---|
 |<img src="./results/form.JPG" width="800" height="300">|
 |<img src="./results/plot.JPG" width="500" height="300">|
