@@ -31,6 +31,9 @@
 
 RenderMode curr_Mode = r_Triangle;
 
+//int counter = 0;
+//float time_ap = 0, time_r = 0, time_f = 0, time_s = 0;
+
 namespace {
 
 	typedef unsigned short VertexIndex;
@@ -1144,6 +1147,12 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	// Execute your rasterization pipeline here
 	// (See README for rasterization pipeline outline.)
 
+	/*float time_elapsed=0;
+	cudaEvent_t start,stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	cudaEventRecord( start,0);
+*/
 	// Vertex Process & primitive assembly
 	{
 		curPrimitiveBeginId = 0;
@@ -1176,6 +1185,18 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 		checkCUDAError("Vertex Processing and Primitive Assembly");
 	}
 
+	/*cudaEventRecord( stop,0);
+	cudaEventSynchronize(start);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&time_elapsed,start,stop);
+	if (counter < 100) {
+		time_ap += time_elapsed;
+	}
+	else if (counter == 100) {
+		printf("Vertex Process & primitive Assembly: %f ms\n", time_ap);
+	}*/
+
+
 	int Culled_totalNumPrimitives = totalNumPrimitives;
 #if BackFaceCulling_Toggle
 	Primitive* dev_primitives_end = thrust::remove_if(thrust::device, dev_primitives, dev_primitives + totalNumPrimitives, BackFaceCulling_Cmp());
@@ -1189,6 +1210,8 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	initKBuffer4 << <blockCount2d, blockSize2d >> > (width, height, dev_k_buffer);
 	initKBufferInFrag << <blockCount2d, blockSize2d >> > (width, height, dev_fragmentBuffer);
 #endif
+	//cudaEventRecord(start, 0);
+
 	// TODO: rasterize
 	cudaMemset(dev_mutex, 0, width * height * sizeof(int));
 	dim3 numThreadsPerBlock(128);
@@ -1199,14 +1222,55 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 		rasterizer_Line << <numBlocksForPrimitives, numThreadsPerBlock >> >(dev_fragmentBuffer, dev_primitives, dev_depth, Culled_totalNumPrimitives, height, width, dev_mutex);
 	else if (curr_Mode == r_Triangle)
 		rasterizer << <numBlocksForPrimitives, numThreadsPerBlock >> >(dev_fragmentBuffer, dev_primitives, dev_depth, Culled_totalNumPrimitives, height, width, dev_mutex, dev_k_buffer);
+	
+	/*cudaEventRecord(stop, 0);
+	cudaEventSynchronize(start);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&time_elapsed, start, stop);
+	if (counter < 100) {
+		time_r += time_elapsed;
+	}
+	else if (counter == 100) {
+		printf("Rasterization: %f ms\n", time_r);
+	}*/
 
 	checkCUDAError("rasterization");
+	
+	//cudaEventRecord(start, 0);
 
 	// Copy depthbuffer colors into framebuffer
 	render << <blockCount2d, blockSize2d >> >(width, height, dev_fragmentBuffer, dev_framebuffer, curr_Mode);
+	
+	/*cudaEventRecord(stop, 0);
+	cudaEventSynchronize(start);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&time_elapsed, start, stop);*/
+	if (counter < 100) {
+		time_f += time_elapsed;
+	}
+	else if (counter == 100) {
+		printf("Render(Fragment Shader): %f ms\n", time_f);
+	}
+
+	//cudaEventRecord(start, 0);
+
 	checkCUDAError("fragment shader");
 	// Copy framebuffer into OpenGL buffer for OpenGL previewing
+	
 	sendImageToPBO << <blockCount2d, blockSize2d >> >(pbo, width, height, dev_framebuffer);
+	
+	//cudaEventRecord(stop, 0);
+	//cudaEventSynchronize(start);
+	//cudaEventSynchronize(stop);
+	//cudaEventElapsedTime(&time_elapsed, start, stop);
+	//if (counter < 100) {
+	//	time_s += time_elapsed;
+	//}
+	//else if (counter == 100) {
+	//	printf("SendToPBO: %f ms\n", time_s);
+	//}
+	//counter++;
+
 	checkCUDAError("copy render result to pbo");
 }
 

@@ -112,7 +112,7 @@ void runCuda() {
 
 	int currentTime = GetTickCount() - init_time;
 	
-	y_angle = 0.001f * currentTime;
+	//y_angle = 0.001f * currentTime;
 
 	glm::mat4 P = glm::frustum<float>(-scale * ((float)width) / ((float)height),
 		scale * ((float)width / (float)height),
