@@ -23,9 +23,9 @@
 
 #define Perspective_Correct_Toggle 1
 #define BackFaceCulling_Toggle 1
-#define K_Buffer_Toggle 0
+#define K_Buffer_Toggle 1
 #define Bilinear_Color_Filter_Toggle 1
-#define Naive_Sort_Toggle 0
+#define Naive_Sort_Toggle 1
 
 #define Alpha_Intensity 0.6f
 
@@ -1245,12 +1245,12 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	cudaEventSynchronize(start);
 	cudaEventSynchronize(stop);
 	cudaEventElapsedTime(&time_elapsed, start, stop);*/
-	if (counter < 100) {
+	/*if (counter < 100) {
 		time_f += time_elapsed;
 	}
 	else if (counter == 100) {
 		printf("Render(Fragment Shader): %f ms\n", time_f);
-	}
+	}*/
 
 	//cudaEventRecord(start, 0);
 

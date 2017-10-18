@@ -100,10 +100,10 @@ void mainLoop() {
 //-------------------------------
 //---------RUNTIME STUFF---------
 //-------------------------------
-float scale = 0.3f;
-//duck scale = 1.0f, z = -3.5; truck z = -8.0 
+float scale = 1.0f;
+//duck scale = 1.0f, y = -1.0f, z = -3.5; truck z = -8.0 
 //cow scale = 0.3, y = 0, z = -3.5
-float x_trans = 0.0f, y_trans = -0.0f, z_trans = -3.5f;
+float x_trans = 0.0f, y_trans = -1.0f, z_trans = -8.0f;
 float x_angle = 0.3f, y_angle = 0.0f;
 void runCuda() {
     // Map OpenGL buffer object for writing from CUDA on a single GPU
@@ -112,7 +112,7 @@ void runCuda() {
 
 	int currentTime = GetTickCount() - init_time;
 	
-	//y_angle = 0.001f * currentTime;
+	y_angle = 0.001f * currentTime;
 
 	glm::mat4 P = glm::frustum<float>(-scale * ((float)width) / ((float)height),
 		scale * ((float)width / (float)height),
