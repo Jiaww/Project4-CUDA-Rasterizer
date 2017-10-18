@@ -22,8 +22,12 @@
 #include <algorithm>
 
 #define Perspective_Correct_Toggle 1
-#define BackFaceCulling_Toggle 0
+#define BackFaceCulling_Toggle 1
 #define K_Buffer_Toggle 1
+#define Bilinear_Color_Filter_Toggle 1
+#define Naive_Sort_Toggle 1
+
+#define Alpha_Intensity 0.5f
 
 RenderMode curr_Mode = r_Triangle;
 
@@ -151,6 +155,7 @@ void sendImageToPBO(uchar4 *pbo, int w, int h, glm::vec3 *image) {
 	}
 }
 
+
 // From Wikipedia: https://en.wikipedia.org/wiki/Bilinear_filtering Part "Sample Code"
 __device__ __host__ glm::vec3 getBilinearFilteredPixelColor(TextureData* tex, glm::vec2 uv, int texWidth, int texHeight) {
 	float u = uv.s * texWidth - 0.5f;
@@ -173,12 +178,13 @@ __device__ __host__ glm::vec3 getBilinearFilteredPixelColor(TextureData* tex, gl
 	return glm::vec3(red, green, blue) / 255.0f;
 }
 
+
 /**
 * Writes fragment colors to the framebuffer
 */
 
 __global__
-void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer) {
+void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer, RenderMode renderMode) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * w);
@@ -206,25 +212,30 @@ void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer) {
 		glm::vec3 diffuseColor;
 		glm::vec3 specColor = glm::vec3(1.0, 1.0, 1.0);
 		
-		//if (fgbuffer.dev_diffuseTex != NULL)
-			//diffuseColor = getBilinearFilteredPixelColor(fgbuffer.dev_diffuseTex, fgbuffer.texcoord0, fgbuffer.TexWidth, fgbuffer.TexHeight);
-		//	diffuseColor = fgbuffer.color;
-		//else
-		//	diffuseColor = fgbuffer.color;
+		
 #if K_Buffer_Toggle
-		float a = 0.3f;
+		float a = Alpha_Intensity;
 		for (int i = 3; i > 0; i--) {
 			if (fgbuffer.K_buffer[i].w == 1.0f)
-				continue;
+				fgbuffer.K_buffer[i] = glm::vec4(0.0f,0.0f,0.0f,1.0f);
 			fgbuffer.K_buffer[i-1] = glm::vec4((a * glm::vec3(fgbuffer.K_buffer[i-1]) + (1 - a)*glm::vec3(fgbuffer.K_buffer[i])), fgbuffer.K_buffer[i-1].w);
 		}
 		diffuseColor = glm::vec3(fgbuffer.K_buffer[0]);
 		specular = 0;
 #else
-		diffuseColor = fgbuffer.color;
+		if (fgbuffer.dev_diffuseTex != NULL)
+#if Bilinear_Color_Filter_Toggle
+			diffuseColor = getBilinearFilteredPixelColor(fgbuffer.dev_diffuseTex, fgbuffer.texcoord0, fgbuffer.TexWidth, fgbuffer.TexHeight);
+#else
+			diffuseColor = fgbuffer.color;
+#endif
+		else
+			diffuseColor = fgbuffer.color;
 #endif
 		glm::vec3 colorLinear = ambientColor + lambertian * diffuseColor + specular * specColor;
 		framebuffer[index] = colorLinear;
+		if(renderMode == r_Point || renderMode == r_Line)
+			framebuffer[index] = diffuseColor;
 	}
 }
 
@@ -834,6 +845,23 @@ __device__ __host__ glm::vec3 cuda_getPerspectiveCorrectNormal(glm::vec3 tri_nor
 		baryvalue.z * tri_normals[2] / (tri[2].z + FLT_EPSILON)));
 	return correct_normal;
 }
+
+__host__ __device__ void naive_sort(glm::vec4 *k_buffer4) {
+	for (int i = 0; i < 3; i++) {
+		float min = k_buffer4[i].w;
+		int n = i;
+		for (int j = i + 1; j < 4; j++) {
+			if (k_buffer4[j].w < min) {
+				n = j;
+				min = k_buffer4[j].w;
+			}
+		}
+		glm::vec4 temp = k_buffer4[i];
+		k_buffer4[i] = k_buffer4[n];
+		k_buffer4[n] = temp;
+	}
+}
+
 __global__ void rasterizer(Fragment *fragmentBuffer, Primitive *primitives, int *depth, int num_primitives, int height, int width, int *mutex, KBuffer4* k_buffer) {
 	// index of primitives
 	int pid = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -921,18 +949,36 @@ __global__ void rasterizer(Fragment *fragmentBuffer, Primitive *primitives, int 
 
 
 
+#if K_Buffer_Toggle
 								if (this_primitives.v[0].dev_diffuseTex != NULL) {
 									fragmentBuffer[pixel_index].dev_diffuseTex = this_primitives.v[0].dev_diffuseTex;
+#if Bilinear_Color_Filter_Toggle
 									fragmentBuffer[pixel_index].color = getBilinearFilteredPixelColor(this_primitives.v[0].dev_diffuseTex, fragmentBuffer[pixel_index].texcoord0, this_primitives.v[0].texWidth, this_primitives.v[0].texHeight);
+#else
+									fragmentBuffer[pixel_index].color = glm::vec3(1.0f, 1.0f, 1.0f);
+#endif
+									//fragmentBuffer[pixel_index].K_buffer[3] = glm::vec4(fragmentBuffer[pixel_index].texcoord0, 0.0f, ffragDepth);
 								}
 								else
 									fragmentBuffer[pixel_index].color = glm::vec3(1, 1, 1);
-#if K_Buffer_Toggle
 								//K_buffer RBGZ
 								fragmentBuffer[pixel_index].K_buffer[3] = glm::vec4(fragmentBuffer[pixel_index].color, ffragDepth);
 								//sort fragment k-buffer
+#if Naive_Sort_Toggle
+								naive_sort(fragmentBuffer[pixel_index].K_buffer);
+#else
 								float keys[4] = { fragmentBuffer[pixel_index].K_buffer[0].w, fragmentBuffer[pixel_index].K_buffer[1].w, fragmentBuffer[pixel_index].K_buffer[2].w , fragmentBuffer[pixel_index].K_buffer[3].w };
 								thrust::sort_by_key(thrust::device, keys, keys + 4, fragmentBuffer[pixel_index].K_buffer);
+#endif
+								
+#else
+								if (this_primitives.v[0].dev_diffuseTex != NULL) {
+									fragmentBuffer[pixel_index].dev_diffuseTex = this_primitives.v[0].dev_diffuseTex;
+									fragmentBuffer[pixel_index].color = glm::vec3(1.0f,1.0f,1.0f);
+									//fragmentBuffer[pixel_index].color = getBilinearFilteredPixelColor(this_primitives.v[0].dev_diffuseTex, fragmentBuffer[pixel_index].texcoord0, this_primitives.v[0].texWidth, this_primitives.v[0].texHeight);
+								}
+								else
+									fragmentBuffer[pixel_index].color = glm::vec3(1, 1, 1);
 #endif
 								//k_max_idx[pixel_index] = 3;
 							}
@@ -1155,7 +1201,7 @@ void rasterize(uchar4 *pbo, const glm::mat4 & MVP, const glm::mat4 & MV, const g
 	checkCUDAError("rasterization");
 
 	// Copy depthbuffer colors into framebuffer
-	render << <blockCount2d, blockSize2d >> >(width, height, dev_fragmentBuffer, dev_framebuffer);
+	render << <blockCount2d, blockSize2d >> >(width, height, dev_fragmentBuffer, dev_framebuffer, curr_Mode);
 	checkCUDAError("fragment shader");
 	// Copy framebuffer into OpenGL buffer for OpenGL previewing
 	sendImageToPBO << <blockCount2d, blockSize2d >> >(pbo, width, height, dev_framebuffer);
