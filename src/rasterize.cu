@@ -867,8 +867,10 @@ __global__ void rasterizer(Fragment *fragmentBuffer, Primitive *primitives, int 
 	int pid = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (pid < num_primitives) {
 		Primitive this_primitives = primitives[pid];
-		//if (glm::dot(this_primitives.v[0].eyeNor, -this_primitives.v[0].eyePos) < 0.0f)
-		//	return;
+#if BackFaceCulling_Toggle
+		if (glm::dot(this_primitives.v[0].eyeNor, -this_primitives.v[0].eyePos) < 0.0f)
+			return;
+#endif
 		glm::vec3 tri[3];
 		//tri[0] = glm::vec3(0.5f - this_primitives.v[0].pos[0] * 3.0f, 0.8f - this_primitives.v[0].pos[1] * 3.0f, this_primitives.v[0].pos[2]);
 		//tri[1] = glm::vec3(0.5f - this_primitives.v[1].pos[0] * 3.0f, 0.8f - this_primitives.v[1].pos[1] * 3.0f, this_primitives.v[1].pos[2]);
