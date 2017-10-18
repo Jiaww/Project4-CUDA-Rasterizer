@@ -4,7 +4,6 @@ CUDA Rasterizer
 
 * Jiawei Wang
 * Tested on: Windows 10, i7-6700 @ 2.60GHz 16.0GB, GTX 970M 3072MB (Personal)
-
 ## Overview
 ___
 * Implemented a simplified **rasterized graphics pipeline**, similar to the OpenGL pipeline using CUDA.  </br>
@@ -82,9 +81,26 @@ ___
   * K_Buffer_Toggle 
   * Bilinear_Color_Filter_Toggle 
   * Naive_Sort_Toggle: a naive sort function for K-Buffer written by myself. If it's off, the project will use thrust::sort instead.
-<img src="./results/form.JPG" width="800" height="300">
-<img src="./results/plot.JPG" width="800" height="300">
+  
+| **CesiumMilkTruck.gltf  Camera.z = -15.0 ** |
+|---|
+|<img src="./results/form.JPG" width="800" height="300">|
+|<img src="./results/plot.JPG" width="500" height="300">|
+
+* BackFaceCulling: According to the form and plot, we can find that the backface culling reduce the FPS of the renderer. After backface culling, we do reduce the number of the faces to render, but we still spend many time on backface determining and stream compaction. 
+* Bilinear_Color_Filter_Texture: According to the results, we can find out that only turn on the *Bilinear_Color_Filter* doesn't affect too much on the efficiency.
+* Perspective_Correct: We can see that the FPS drop down from 180 to 84 when the *Perspective Correct* turns on. It's because each pixel during the rasterization has to call the `correct` function, which has lots of floating number calculations and divisions.
+* K_Buffer: The FPS drop down to 10 ~ 12 when we turn on the *K_Buffer*. Compare with the K-Buffer-off situation, we have to some additional operations as following:
+  * Comparing and Writting to dev_K_buffers during the rasterization
+  * Writting to K-Buffers of the fragmentbuffer during the rasterization.
+  * Sorting the K-Buffers according to their depth values during the rasterization.
+  * Computing the Alpha Blending results during the render.
+* Naive_Sort: I just use a naive *insertion Sort* method to replace the `thrust::sort_by_keys` and the FPS increases a lot. This is amazing but also confusing. I don't know how exactly the `thrust::sort_by_keys` works, but it should be similar to *Radix Sort* we implemented before. And in this case, the K-buffer only has 4 elements, so the *insertion Sort* will be definitely faster than *Radix Sort*, especially the sequence is sorted before the insertion. But the *Radix Sort* should not be such slow.
+
 ### Credits
 
+* [Bilinear Filter](https://en.wikipedia.org/wiki/Bilinear_filtering) by WIKI
+* [Order-independent-transparency](https://en.wikipedia.org/wiki/Order-independent_transparency) by WIKI
+* [K-buffer](http://on-demand.gputechconf.com/gtc/2014/presentations/S4385-order-independent-transparency-opengl.pdf) by NVIDIA
 * [tinygltfloader](https://github.com/syoyo/tinygltfloader) by [@soyoyo](https://github.com/syoyo)
 * [glTF Sample Models](https://github.com/KhronosGroup/glTF/blob/master/sampleModels/README.md)
