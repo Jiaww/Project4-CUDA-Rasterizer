@@ -1,4 +1,5 @@
 CUDA Rasterizer
+<img src="./results/header.jpg" width="1000" height="230">
 ===============
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
 
