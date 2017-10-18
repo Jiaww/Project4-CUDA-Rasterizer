@@ -23,11 +23,11 @@
 
 #define Perspective_Correct_Toggle 1
 #define BackFaceCulling_Toggle 1
-#define K_Buffer_Toggle 1
+#define K_Buffer_Toggle 0
 #define Bilinear_Color_Filter_Toggle 1
-#define Naive_Sort_Toggle 1
+#define Naive_Sort_Toggle 0
 
-#define Alpha_Intensity 0.5f
+#define Alpha_Intensity 0.6f
 
 RenderMode curr_Mode = r_Triangle;
 
