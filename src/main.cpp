@@ -105,6 +105,7 @@ float scale = 1.0f;
 //cow scale = 0.3, y = 0, z = -3.5
 float x_trans = 0.0f, y_trans = -1.0f, z_trans = -8.0f;
 float x_angle = 0.3f, y_angle = 0.0f;
+float Model_scale = 0.01f;
 void runCuda() {
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
@@ -120,10 +121,12 @@ void runCuda() {
 
 	glm::mat4 V = glm::mat4(1.0f);
 
+	glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(Model_scale));
 	glm::mat4 M =
 		glm::translate(glm::vec3(x_trans, y_trans, z_trans))
 		* glm::rotate(x_angle, glm::vec3(1.0f, 0.0f, 0.0f))
-		* glm::rotate(y_angle, glm::vec3(0.0f, 1.0f, 0.0f));
+		* glm::rotate(y_angle, glm::vec3(0.0f, 1.0f, 0.0f)) 
+		* scaleMatrix;
 
 	glm::mat3 MV_normal = glm::transpose(glm::inverse(glm::mat3(V) * glm::mat3(M)));
 	glm::mat4 MV = V * M;

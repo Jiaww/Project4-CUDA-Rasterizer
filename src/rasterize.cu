@@ -27,10 +27,13 @@
 #define Bilinear_Color_Filter_Toggle 1
 #define Naive_Sort_Toggle 1
 
-#define Alpha_Intensity 0.6f
+#define Alpha_Intensity 0.3f
 
 RenderMode curr_Mode = r_Triangle;
 
+//Tips: You can change the property of the model matrix in main.cpp 
+
+// Timer
 //int counter = 0;
 //float time_ap = 0, time_r = 0, time_f = 0, time_s = 0;
 
@@ -218,6 +221,12 @@ void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer, Rend
 		
 #if K_Buffer_Toggle
 		float a = Alpha_Intensity;
+		/*diffuseColor = a * glm::vec3(fgbuffer.K_buffer[3]);
+		diffuseColor = a * glm::vec3(fgbuffer.K_buffer[2]) + (1 - a)* diffuseColor;
+		diffuseColor = a * glm::vec3(fgbuffer.K_buffer[1]) + (1 - a)* diffuseColor;
+		diffuseColor = a * glm::vec3(fgbuffer.K_buffer[0]) + (1 - a)* diffuseColor;
+*/
+		fgbuffer.K_buffer[3] = glm::vec4((a * glm::vec3(fgbuffer.K_buffer[3]), (1-a)*glm::vec3(0.0f,0.0f,0.0f)),fgbuffer.K_buffer[3].w);
 		for (int i = 3; i > 0; i--) {
 			if (fgbuffer.K_buffer[i].w == 1.0f)
 				fgbuffer.K_buffer[i] = glm::vec4(0.0f,0.0f,0.0f,1.0f);
@@ -225,6 +234,7 @@ void render(int w, int h, Fragment *fragmentBuffer, glm::vec3 *framebuffer, Rend
 		}
 		diffuseColor = glm::vec3(fgbuffer.K_buffer[0]);
 		specular = 0;
+		lambertian = 1.0f;
 #else
 		if (fgbuffer.dev_diffuseTex != NULL)
 #if Bilinear_Color_Filter_Toggle
@@ -865,6 +875,21 @@ __host__ __device__ void naive_sort(glm::vec4 *k_buffer4) {
 	}
 }
 
+// From https://devtalk.nvidia.com/default/topic/492068/atomicmin-with-float/
+__device__ static
+float fatomicMin(float *addr, float value)
+{
+	float old = *addr, assumed;
+	if (old <= value) return old;
+	do {
+		assumed = old;
+		old = atomicCAS((unsigned int*)addr, __float_as_int(assumed), __float_as_int(value));
+	} while (old != assumed);
+
+	return old;
+}
+
+
 __global__ void rasterizer(Fragment *fragmentBuffer, Primitive *primitives, int *depth, int num_primitives, int height, int width, int *mutex, KBuffer4* k_buffer) {
 	// index of primitives
 	int pid = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -913,9 +938,18 @@ __global__ void rasterizer(Fragment *fragmentBuffer, Primitive *primitives, int 
 					int ifragDepth = INT_MAX * ffragDepth;
 					
 #if K_Buffer_Toggle
-					if (ffragDepth < k_buffer[pixel_index].depths[3]) {
+					
+					float maxDepth = -1.0f;
+					int max_id = 0;
+					for (int m = 3; m >0; m--) {
+						if (maxDepth < k_buffer[pixel_index].depths[m]) {
+							maxDepth = k_buffer[pixel_index].depths[m];
+							max_id = m;
+						}
+					}
 
-						atomicExch(&k_buffer[pixel_index].depths[3], ffragDepth);
+					if (ffragDepth < maxDepth) {
+						fatomicMin(&k_buffer[pixel_index].depths[max_id], ffragDepth);
 #else
 					if (ifragDepth < depth[pixel_index]) {
 						atomicMin(&depth[pixel_index], ifragDepth);
@@ -962,12 +996,12 @@ __global__ void rasterizer(Fragment *fragmentBuffer, Primitive *primitives, int 
 #else
 									fragmentBuffer[pixel_index].color = glm::vec3(1.0f, 1.0f, 1.0f);
 #endif
-									//fragmentBuffer[pixel_index].K_buffer[3] = glm::vec4(fragmentBuffer[pixel_index].texcoord0, 0.0f, ffragDepth);
+									//fragmentBuffer[pixel_index].K_buffer[max_id] = glm::vec4(fragmentBuffer[pixel_index].texcoord0, 0.0f, ffragDepth);
 								}
 								else
 									fragmentBuffer[pixel_index].color = glm::vec3(1, 1, 1);
 								//K_buffer RBGZ
-								fragmentBuffer[pixel_index].K_buffer[3] = glm::vec4(fragmentBuffer[pixel_index].color, ffragDepth);
+								fragmentBuffer[pixel_index].K_buffer[max_id] = glm::vec4(fragmentBuffer[pixel_index].color, ffragDepth);
 								//sort fragment k-buffer
 #if Naive_Sort_Toggle
 								naive_sort(fragmentBuffer[pixel_index].K_buffer);
@@ -975,22 +1009,24 @@ __global__ void rasterizer(Fragment *fragmentBuffer, Primitive *primitives, int 
 								float keys[4] = { fragmentBuffer[pixel_index].K_buffer[0].w, fragmentBuffer[pixel_index].K_buffer[1].w, fragmentBuffer[pixel_index].K_buffer[2].w , fragmentBuffer[pixel_index].K_buffer[3].w };
 								thrust::sort_by_key(thrust::device, keys, keys + 4, fragmentBuffer[pixel_index].K_buffer);
 #endif
-								
+								for (int m = 0; m < 4; m++) {
+									k_buffer[pixel_index].depths[m] = fragmentBuffer[pixel_index].K_buffer[m].w;
+								}
 #else
 								if (this_primitives.v[0].dev_diffuseTex != NULL) {
 									fragmentBuffer[pixel_index].dev_diffuseTex = this_primitives.v[0].dev_diffuseTex;
-									fragmentBuffer[pixel_index].color = glm::vec3(1.0f,1.0f,1.0f);
+									fragmentBuffer[pixel_index].color = glm::vec3(1.0f, 1.0f, 1.0f);
 									//fragmentBuffer[pixel_index].color = getBilinearFilteredPixelColor(this_primitives.v[0].dev_diffuseTex, fragmentBuffer[pixel_index].texcoord0, this_primitives.v[0].texWidth, this_primitives.v[0].texHeight);
 								}
 								else
 									fragmentBuffer[pixel_index].color = glm::vec3(1, 1, 1);
 #endif
 								//k_max_idx[pixel_index] = 3;
-							}
+								}
 							if (isSet) {
 								mutex[pixel_index] = 0;
 							}
-						} while (!isSet);
+							} while (!isSet);
 					}
 				}
 			}
